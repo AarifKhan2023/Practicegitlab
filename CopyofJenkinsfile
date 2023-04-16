@@ -1,16 +1,18 @@
-//Pipeline
-    node{
-       environment{
-            var_id = '$number'
-            number = 'onPremiseid'
-        }
-	stages{
-	 stage('Build') {
-	  steps {
-	   echo "what is the $var_id"
-	   }
+pipeline {
+ agent any
+ environment{
+  var_id = '$number'
+  number = 'String onPremiseid'
+  }
+  
+  stages {
+    stage('Build') {
+     steps { 
+          echo "print the value of $var_id"
+	  echo "what is $number"
 	  }
-	}
+     }
    }
-}
+}   
+  
 	  
