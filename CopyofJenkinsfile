@@ -1,37 +1,16 @@
 try{
-    env.Myvar = onPremiseid 
     node(node_name){
-        stage('Pre-Run Slack Notification') {
-            slack_notifications(slack_input)
+        environment{
+            var_id = '$number'
+            number = {Default Value, (String onPremiseid) }
         }
-        stage('Clean Workspace') {
-        cleanWs()
-        }
-        panasonic_git_repos(git_input);
-        // downloadFile(serverFirebaseJsonMap);
-        // downloadFile(serverLaunchConfigMap);
-        println panasonic_java_build(environment);
-        withCredentials([string(credentialsId:accessID, variable: 'accessid'), string(credentialsId:secretKEY, variable: 'secretkey')]) {
-            stage('codeDeploy'){
-                step([$class:'AWSCodeDeployPublisher', applicationName:applicationName, awsAccessKey:accessid, awsSecretKey:secretkey, credentials: 'awsAccessKey', deploymentConfig: 'CodeDeployDefault.OneAtATime', deploymentGroupAppspec: false, deploymentGroupName: deploymentGroupName, excludes: '', iamRoleArn: '', includes: 'build/libs/**/*.jar,scripts/*, scripts/$Myvar/*, appspec.yml', proxyHost: '', proxyPort: 0, region: 'ap-south-1', s3bucket: s3bucket, s3prefix: '', subdirectory: '', versionFileName: '', waitForCompletion: false])
-                }
-            }
-        }
-        slack_input.event = "stop";
-        stage('Success- Slack Notification') {
-            slack_notifications(slack_input)
-        }
+	stages{
+	 stage('Build') {
+	  steps {
+	   echo "what is the $var_id"
+	   }
+	  }
+	}
+   }
 }
-catch(error){
-    slack_input.event = "failure";
-	slack_notifications(slack_input);
-    throw error
-
-}
-finally {
-    node(node_name) {
-    stage('Final Clean Workspace') {
-        cleanWs()
-        }
-    }
-}
+	  
