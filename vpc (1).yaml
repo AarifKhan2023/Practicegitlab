@@ -1,0 +1,322 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Generic template for SDLC VPC.
+Parameters:
+  product:
+    Type: String
+  environment:
+    Type: String
+    AllowedValues:
+      - shared
+      - dev
+      - prod
+  service:
+    Type: String
+    Default: vpc
+Mappings:
+  sunlitlive:
+    "654654545754":
+      environment: shared
+      cidr: 10.90.0.0/16
+    "891377291649":
+      environment: dev
+      cidr: 10.91.0.0/16
+    accountIds:
+      accountIds:
+        - "654654545754"
+        - "891377291649"
+Resources:
+  vpc:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !FindInMap
+        - !Ref product
+        - !Ref AWS::AccountId
+        - cidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${environment}-${product}-${service}
+  publicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Select [ 1, !Cidr [ !GetAtt vpc.CidrBlock, 256, 8 ]]
+      VpcId: !Ref vpc
+      AvailabilityZone: !Sub ${AWS::Region}a
+      Tags:
+        - Key: Name
+          Value: !Sub ${environment}-${product}-${service}-public-subnet-a
+  publicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Select [ 2, !Cidr [ !GetAtt vpc.CidrBlock, 256, 8 ]]
+      VpcId: !Ref vpc
+      AvailabilityZone: !Sub ${AWS::Region}b
+      Tags:
+        - Key: Name
+          Value: !Sub ${environment}-${product}-${service}-public-subnet-b
+  publicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Select [ 3, !Cidr [ !GetAtt vpc.CidrBlock, 256, 8 ]]
+      VpcId: !Ref vpc
+      AvailabilityZone: !Sub ${AWS::Region}c
+      Tags:
+        - Key: Name
+          Value: !Sub ${environment}-${product}-${service}-public-subnet-c
+  privateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Select [ 101, !Cidr [ !GetAtt vpc.CidrBlock, 256, 8 ]]
+      VpcId: !Ref vpc
+      AvailabilityZone: !Sub ${AWS::Region}a
+      Tags:
+        - Key: Name
+          Value: !Sub ${environment}-${product}-${service}-private-subnet-a
+  privateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Select [ 102, !Cidr [ !GetAtt vpc.CidrBlock, 256, 8 ]]
+      VpcId: !Ref vpc
+      AvailabilityZone: !Sub ${AWS::Region}b
+      Tags:
+        - Key: Name
+          Value: !Sub ${environment}-${product}-${service}-private-subnet-b
+  privateSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Select [ 103, !Cidr [ !GetAtt vpc.CidrBlock, 256, 8 ]]
+      VpcId: !Ref vpc
+      AvailabilityZone: !Sub ${AWS::Region}c
+      Tags:
+        - Key: Name
+          Value: !Sub ${environment}-${product}-${service}-private-subnet-c
+  igw:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${environment}-${product}-${service}-igw
+  igwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref vpc
+      InternetGatewayId: !Ref igw
+  natEipA:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  ngwA:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - natEipA
+          - AllocationId
+      SubnetId: !Ref publicSubnetA
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${environment}-${product}-${service}-natgw-a
+  publicRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${environment}-${product}-${service}-public-route-table-a
+  privateRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${environment}-${product}-${service}-private-route-table-a
+  publicRtAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnetA
+      RouteTableId: !Ref publicRouteTableA
+  publicRtAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnetB
+      RouteTableId: !Ref publicRouteTableA
+  publicRtAssocC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnetC
+      RouteTableId: !Ref publicRouteTableA
+  privateRtAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateSubnetA
+      RouteTableId: !Ref privateRouteTableA
+  privateRtAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateSubnetB
+      RouteTableId: !Ref privateRouteTableA
+  privateRtAssocC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateSubnetC
+      RouteTableId: !Ref privateRouteTableA
+  igwRouteA:
+    Type: AWS::EC2::Route
+    DependsOn: igwAttachment
+    Properties:
+      GatewayId: !Ref igw
+      RouteTableId: !Ref publicRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+  ngwRouteA:
+    Type: AWS::EC2::Route
+    DependsOn: ngwA
+    Properties:
+      NatGatewayId: !Ref ngwA
+      RouteTableId: !Ref privateRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+  generalSG:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Shared and SG itself, and this VPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !FindInMap
+            - !Ref product
+            - !Ref AWS::AccountId
+            - cidr
+        -
+          IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 10.90.0.0/16
+        -
+          IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 10.91.0.0/16
+        -
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Allowed HTTP Traffic for All
+        -
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Allowed HTTPS Traffic for All
+        -
+          IpProtocol: tcp
+          FromPort: 8443
+          ToPort: 8443
+          CidrIp: 0.0.0.0/0
+          Description: Allowed pritunl Traffic for All
+      VpcId: !Ref vpc
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${environment}-${product}-${service}-generalSG
+  generalSGSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: generalSG
+    Properties:
+      GroupId: !Ref generalSG
+      IpProtocol: -1
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId: !Ref generalSG
+  LambdaS3:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${environment}-${product}-lambda
+  vpcEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      RouteTableIds:
+        - !Ref publicRouteTableA
+        - !Ref privateRouteTableA
+      ServiceName:
+        'Fn::Sub': 'com.amazonaws.${AWS::Region}.s3'
+      VpcId:
+        !Ref vpc
+Outputs:
+  vpc:
+    Description: Logical ID
+    Value: !Ref vpc
+    Export:
+      Name: !Sub ${environment}-${product}-${service}
+  publicSubnetA:
+    Description: Logical ID of public SubnetA
+    Value: !Ref publicSubnetA
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-public-subnet-a
+  publicSubnetB:
+    Description: Logical ID of public SubnetB
+    Value: !Ref publicSubnetB
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-public-subnet-b
+  publicSubnetC:
+    Description: Logical ID
+    Value: !Ref publicSubnetC
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-public-subnet-c
+  privateSubnetA:
+    Description: Logical ID
+    Value: !Ref privateSubnetA
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-private-subnet-a
+  privateSubnetB:
+    Description: Logical ID
+    Value: !Ref privateSubnetB
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-private-subnet-b
+  privateSubnetC:
+    Description: Logical ID
+    Value: !Ref privateSubnetC
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-private-subnet-c
+  natEipA:
+    Description: The EIP of the nat gateway
+    Value: !Ref natEipA
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-nateip-a
+  ngwA:
+    Description: Logical ID
+    Value: !Ref ngwA
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-ngw-a
+  publicRouteTableA:
+    Description: Logical ID
+    Value: !Ref publicRouteTableA
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-public-route-table-a
+  privateRouteTableA:
+    Description: Private Route Table Logical ID
+    Value: !Ref privateRouteTableA
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-private-route-table-a
+  generalSG:
+    Description: General use SG Group ID
+    Value:
+      Fn::GetAtt:
+        - generalSG
+        - GroupId
+    Export:
+      Name: !Sub ${environment}-${product}-${service}-generalSG
+  LambdaS3:
+    Description: S3 Bucket For Lambda
+    Value: !Ref LambdaS3
+    Export: 
+      Name: !Sub ${environment}-${product}-lambda
